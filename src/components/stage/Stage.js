@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
+import { Animated, Easing, Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useStore } from "../../state/useStore";
 import { actions, getSprite, getState } from "../../state/store";
 import { HALF_H, HALF_W, STAGE_HEIGHT, STAGE_WIDTH, round, toScreen } from "../../engine/coords";
 import { prefersReducedMotion } from "../../engine/runtime";
-import { colors, radius, shadow } from "../../theme";
+import { colors, shadow } from "../../theme";
 import { haptics } from "../../haptics";
 import SpriteArt from "../SpriteArt";
 import { Txt } from "../ui/Txt";
@@ -16,6 +16,10 @@ const nativeDriver = Platform.OS !== "web";
 // A hit we're seeing for the first time should animate. One that's old (say the stage
 // tab was opened after the collision happened) shouldn't replay.
 const isFresh = (hit) => Boolean(hit) && Date.now() - hit.at < 400;
+
+// Animated.View doesn't take className, so the animated parts use plain style objects
+const fill = { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 };
+const centered = { ...fill, alignItems: "center", justifyContent: "center" };
 
 function SpriteNode({ sprite, scale, selected, running }) {
   const { left, top } = toScreen(sprite.x, sprite.y, scale);
@@ -82,8 +86,10 @@ function SpriteNode({ sprite, scale, selected, running }) {
         accessibilityRole="image"
         accessibilityLabel={`${sprite.name} at x ${Math.round(sprite.x)}, y ${Math.round(sprite.y)}, direction ${Math.round(sprite.direction)}`}
         style={[
-          styles.sprite,
           {
+            position: "absolute",
+            left: 0,
+            top: 0,
             width: w,
             height: h,
             transform: [
@@ -106,7 +112,9 @@ function SpriteNode({ sprite, scale, selected, running }) {
         >
           <SpriteArt costume={sprite.costume} size={w} />
         </Animated.View>
-        {selected && <View pointerEvents="none" style={styles.selection} />}
+        {selected && (
+          <View pointerEvents="none" className="absolute -inset-[3px] rounded-[10px] border-2 border-dashed border-[rgba(76,151,255,0.75)]" />
+        )}
       </Animated.View>
     </GestureDetector>
   );
@@ -126,22 +134,28 @@ function Bubble({ sprite, bubble, scale, stageW, stageH }) {
   const think = bubble.kind === "think";
   const pos = below ? { top: top + halfH + 10 } : { bottom: stageH - (top - halfH) + 10 };
 
+  const dot = "absolute rounded-lg border-2 border-[#C5CCD8] bg-[#FBFAFF]";
+
   return (
     <View
       pointerEvents="none"
       accessibilityLiveRegion="polite"
-      style={[styles.bubble, think && styles.think, { left: x - estW / 2, width: estW }, pos]}
+      className={`absolute border-2 border-[#C5CCD8] px-2.5 py-[7px] ${think ? "rounded-[22px] border-dashed bg-[#FBFAFF]" : "rounded-[14px] bg-white"}`}
+      style={[shadow.md, { left: x - estW / 2, width: estW }, pos]}
     >
-      <Txt w={600} style={[styles.bubbleText, think && { color: "#4B2A99" }]}>
+      <Txt w={600} className={`text-center text-sm leading-[17px] ${think ? "text-[#4B2A99]" : "text-ink"}`}>
         {bubble.text || " "}
       </Txt>
       {think ? (
         <>
-          <View style={[styles.thinkDot, styles.thinkDotBig, { left: tail - 5 }, below ? { top: -14 } : { bottom: -14 }]} />
-          <View style={[styles.thinkDot, styles.thinkDotSmall, { left: tail - 11 }, below ? { top: -24 } : { bottom: -24 }]} />
+          <View className={`${dot} h-[11px] w-[11px]`} style={[{ left: tail - 5 }, below ? { top: -14 } : { bottom: -14 }]} />
+          <View className={`${dot} h-[7px] w-[7px]`} style={[{ left: tail - 11 }, below ? { top: -24 } : { bottom: -24 }]} />
         </>
       ) : (
-        <View style={[styles.tail, { left: tail - 7 }, below ? styles.tailUp : styles.tailDown]} />
+        <View
+          className={`absolute h-3.5 w-3.5 rounded-br-[3px] border-b-2 border-r-2 border-[#C5CCD8] bg-white ${below ? "-top-[9px] -rotate-[135deg]" : "-bottom-[9px] rotate-45"}`}
+          style={{ left: tail - 7 }}
+        />
       )}
     </View>
   );
@@ -175,17 +189,23 @@ function CollisionBurst({ scale }) {
   const fade = (from, to) => t.interpolate({ inputRange: [0, from, to, 1], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
 
   return (
-    <View pointerEvents="none" style={[styles.burst, box]}>
+    <View pointerEvents="none" className="absolute" style={box}>
       <Animated.View
         style={[
-          styles.flash,
-          { borderRadius: r, opacity: fade(0.05, 0.2), transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.1] }) }] },
+          fill,
+          {
+            backgroundColor: "rgba(255, 214, 102, 0.55)",
+            borderRadius: r,
+            opacity: fade(0.05, 0.2),
+            transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.1] }) }],
+          },
         ]}
       />
       <Animated.View
         style={[
-          styles.ring,
+          fill,
           {
+            borderColor: colors.control,
             borderRadius: r,
             borderWidth: Math.max(2, 4 * scale),
             opacity: fade(0.02, 0.5),
@@ -194,7 +214,7 @@ function CollisionBurst({ scale }) {
         ]}
       />
       {SPARKS.map((deg, i) => (
-        <View key={deg} style={[StyleSheet.absoluteFill, styles.center, { transform: [{ rotate: `${deg}deg` }] }]}>
+        <View key={deg} className="absolute inset-0 items-center justify-center" style={{ transform: [{ rotate: `${deg}deg` }] }}>
           <Animated.View
             style={{
               width: Math.max(3, 5 * scale),
@@ -209,8 +229,7 @@ function CollisionBurst({ scale }) {
       ))}
       <Animated.View
         style={[
-          StyleSheet.absoluteFill,
-          styles.center,
+          centered,
           {
             opacity: fade(0.02, 0.65),
             transform: [{ scale: t.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.2, 1.3, 0.9] }) }],
@@ -236,12 +255,16 @@ function SwapToast() {
   }, [lastSwap, fade]);
   if (!lastSwap || hiddenFor === lastSwap.n) return null;
   return (
-    <Animated.View pointerEvents="none" style={[styles.toast, { opacity: fade }]} accessibilityLiveRegion="polite">
-      <Icon name="zap" size={13} color={colors.control} />
-      <Txt w={600} style={styles.toastText}>
-        {lastSwap.names[0]} ⇄ {lastSwap.names[1]}: moves swapped
-      </Txt>
-    </Animated.View>
+    <View pointerEvents="none" className="absolute top-2 self-center" accessibilityLiveRegion="polite">
+      <Animated.View style={{ opacity: fade }}>
+        <View className="flex-row items-center gap-x-1.5 rounded-full bg-ink px-3 py-1.5" style={shadow.md}>
+          <Icon name="zap" size={13} color={colors.control} />
+          <Txt w={600} className="text-xs text-white">
+            {lastSwap.names[0]} ⇄ {lastSwap.names[1]}: moves swapped
+          </Txt>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -261,15 +284,17 @@ export default function Stage({ width: fixedWidth, rounded = true }) {
   return (
     <View
       onLayout={fixedWidth ? undefined : (e) => setMeasured(e.nativeEvent.layout.width)}
-      style={fixedWidth ? { width: fixedWidth } : styles.measure}
+      className={fixedWidth ? "" : "self-stretch"}
+      style={fixedWidth ? { width: fixedWidth } : undefined}
     >
       {scale > 0 && (
         <View
-          style={[styles.stage, rounded && styles.rounded, running && styles.stageRunning, { width, height }]}
+          className={`overflow-hidden border bg-white ${rounded ? "rounded-md" : ""} ${running ? "border-[#A6DCA6]" : "border-line-strong"}`}
+          style={{ width, height }}
           accessibilityLabel="Stage, 480 by 360. Origin at the centre, x to the right, y up."
         >
-          <View pointerEvents="none" style={[styles.axisV, { left: HALF_W * scale }]} />
-          <View pointerEvents="none" style={[styles.axisH, { top: HALF_H * scale }]} />
+          <View pointerEvents="none" className="absolute bottom-0 top-0 w-px bg-[#EDF0F5]" style={{ left: HALF_W * scale }} />
+          <View pointerEvents="none" className="absolute left-0 right-0 h-px bg-[#EDF0F5]" style={{ top: HALF_H * scale }} />
           {sprites.map((sp) => (
             <SpriteNode key={sp.id} sprite={sp} scale={scale} selected={sp.id === selectedId} running={running} />
           ))}
@@ -278,8 +303,8 @@ export default function Stage({ width: fixedWidth, rounded = true }) {
           )}
           <CollisionBurst scale={scale} />
           <SwapToast />
-          <View pointerEvents="none" style={styles.coords}>
-            <Txt w={500} style={styles.coordsText}>
+          <View pointerEvents="none" className="absolute bottom-[5px] right-1.5 rounded bg-white/[0.88] px-1.5 py-0.5">
+            <Txt w={500} className="text-2xs text-ink-2 tabular-nums">
               {sel ? `${sel.name}  x: ${round(sel.x, 0)}  y: ${round(sel.y, 0)}` : "(0, 0) = centre"}
             </Txt>
           </View>
@@ -288,84 +313,3 @@ export default function Stage({ width: fixedWidth, rounded = true }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  measure: { alignSelf: "stretch" },
-  stage: {
-    overflow: "hidden",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-  },
-  rounded: { borderRadius: radius.md },
-  stageRunning: { borderColor: "#A6DCA6" },
-  axisV: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "#EDF0F5" },
-  axisH: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "#EDF0F5" },
-  sprite: { position: "absolute", left: 0, top: 0 },
-  burst: { position: "absolute" },
-  center: { alignItems: "center", justifyContent: "center" },
-  flash: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255, 214, 102, 0.55)" },
-  ring: { ...StyleSheet.absoluteFillObject, borderColor: colors.control },
-  selection: {
-    position: "absolute",
-    left: -3,
-    top: -3,
-    right: -3,
-    bottom: -3,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "rgba(76,151,255,0.75)",
-    borderRadius: 10,
-  },
-  bubble: {
-    position: "absolute",
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 2,
-    borderColor: "#C5CCD8",
-    ...shadow.md,
-  },
-  think: { borderRadius: 22, borderStyle: "dashed", backgroundColor: "#FBFAFF" },
-  bubbleText: { fontSize: 13, lineHeight: 17, textAlign: "center" },
-  tail: {
-    position: "absolute",
-    width: 14,
-    height: 14,
-    backgroundColor: "#FFFFFF",
-    borderColor: "#C5CCD8",
-    borderRightWidth: 2,
-    borderBottomWidth: 2,
-    borderBottomRightRadius: 3,
-  },
-  tailDown: { bottom: -9, transform: [{ rotate: "45deg" }] },
-  tailUp: { top: -9, transform: [{ rotate: "-135deg" }] },
-  thinkDot: { position: "absolute", backgroundColor: "#FBFAFF", borderWidth: 2, borderColor: "#C5CCD8", borderRadius: 8 },
-  thinkDotBig: { width: 11, height: 11 },
-  thinkDotSmall: { width: 7, height: 7 },
-  toast: {
-    position: "absolute",
-    top: 8,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: colors.text,
-    ...shadow.md,
-  },
-  toastText: { color: "#FFFFFF", fontSize: 12 },
-  coords: {
-    position: "absolute",
-    right: 6,
-    bottom: 5,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.88)",
-  },
-  coordsText: { fontSize: 11, color: colors.text2, fontVariant: ["tabular-nums"] },
-});

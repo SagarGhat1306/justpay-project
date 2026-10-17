@@ -1,11 +1,11 @@
 import React from "react";
-import { Modal, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Modal, View, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useStore } from "../../state/useStore";
 import { play, reset, stop } from "../../engine/runtime";
-import { colors, radius, shadow } from "../../theme";
+import { shadow } from "../../theme";
 import { IconButton, SwapPill } from "../ui/Buttons";
 import { Txt } from "../ui/Txt";
 import Stage from "./Stage";
@@ -37,17 +37,21 @@ export default function FullscreenStage({ visible, onExit }) {
       onRequestClose={onExit}
     >
       {/* Modal is a separate native root on Android, so gestures need their own root view */}
-      <GestureHandlerRootView style={styles.root}>
+      <GestureHandlerRootView className="flex-1 bg-[#EEF1F6]">
         <StatusBar style="dark" />
-        <View style={[styles.bar, { paddingTop: insets.top, height: BAR_H + insets.top, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]}>
-          <View style={styles.controls}>
+        {/* the safe-area insets are only known at runtime, so the padding stays inline */}
+        <View
+          className="flex-row items-center gap-x-2.5 border-b border-line bg-panel"
+          style={[shadow.sm, { paddingTop: insets.top, height: BAR_H + insets.top, paddingLeft: insets.left + 12, paddingRight: insets.right + 12 }]}
+        >
+          <View className="flex-row gap-x-2">
             <IconButton icon="play" label={running ? "Running" : "Play"} tone="go" onPress={play} disabled={running} showLabel={!narrow} />
             <IconButton icon="stop" label="Stop" tone="danger" onPress={stop} disabled={!running} showLabel={!narrow} />
             <IconButton icon="reset" label="Reset" accessibilityLabel="Reset stage" tone="outline" onPress={reset} showLabel={!narrow} />
           </View>
-          <View style={styles.titleWrap}>
+          <View className="min-w-0 flex-1 flex-row items-center justify-center gap-x-2">
             {!narrow && (
-              <Txt w={600} numberOfLines={1} style={styles.title}>
+              <Txt w={600} numberOfLines={1} className="shrink text-base text-ink">
                 {title}
               </Txt>
             )}
@@ -55,8 +59,8 @@ export default function FullscreenStage({ visible, onExit }) {
           </View>
           <IconButton icon="minimize" label="Exit" accessibilityLabel="Exit full screen" tone="outline" onPress={onExit} showLabel={!narrow} />
         </View>
-        <View style={[styles.body, { paddingBottom: insets.bottom }]}>
-          <View style={styles.stageShadow}>
+        <View className="flex-1 items-center justify-center" style={{ paddingBottom: insets.bottom }}>
+          <View className="rounded-md bg-white" style={shadow.lg}>
             <Stage width={stageW} />
           </View>
         </View>
@@ -64,21 +68,3 @@ export default function FullscreenStage({ visible, onExit }) {
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#EEF1F6" },
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 10,
-    backgroundColor: colors.panel,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    ...shadow.sm,
-  },
-  controls: { flexDirection: "row", columnGap: 8 },
-  titleWrap: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", columnGap: 8, minWidth: 0 },
-  title: { fontSize: 14, flexShrink: 1 },
-  body: { flex: 1, alignItems: "center", justifyContent: "center" },
-  stageShadow: { borderRadius: radius.md, ...shadow.lg, backgroundColor: "#FFFFFF" },
-});

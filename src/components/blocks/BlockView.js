@@ -1,12 +1,12 @@
 import React, { Fragment, memo, useEffect, useRef, useState } from "react";
-import { Animated, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Platform, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { BLOCK_DEFS, createBlock, findBlock, toNumber } from "../../engine/blocks";
 import { actions, getSprite } from "../../state/store";
 import { useStore } from "../../state/useStore";
 import { useDrag } from "../../dnd/dragStore";
 import { registerBlock } from "../../dnd/registry";
-import { categoryColors, colors, radius } from "../../theme";
+import { categoryColors, colors } from "../../theme";
 import { ARM_W, FOOT_H, NOTCH_D, cPath, stackPath } from "./shapes";
 import { Field, Txt, numberKeyboard } from "../ui/Txt";
 import Icon from "../Icon";
@@ -41,13 +41,14 @@ function ParamInput({ spriteId, block, part, readOnly }) {
   const str = String(block.params[part.param] ?? "");
   const isNumber = part.kind === "number";
   const invalid = isNumber && str.trim() !== "" && !Number.isFinite(toNumber(str, NaN));
-  const width = inputWidth(str, isNumber);
-  const pill = [styles.param, isNumber ? styles.paramNumber : styles.paramText, { width }];
+  const width = inputWidth(str, isNumber); // computed, so it stays inline
+  const pill = `h-[26px] min-w-8 items-center justify-center bg-white ${isNumber ? "rounded-[13px]" : "rounded-sm"}`;
+  const label = "text-center text-sm text-ink";
 
   if (readOnly) {
     return (
-      <View style={pill}>
-        <Txt w={600} style={styles.paramLabel} numberOfLines={1}>
+      <View className={`${pill} border border-black/[0.12] px-2`} style={{ width }}>
+        <Txt w={600} className={label} numberOfLines={1}>
           {str}
         </Txt>
       </View>
@@ -56,7 +57,8 @@ function ParamInput({ spriteId, block, part, readOnly }) {
   return (
     <Field
       w={600}
-      style={[pill, styles.paramLabel, styles.paramInput, invalid && styles.paramInvalid]}
+      className={`${pill} ${label} px-1.5 ${invalid ? "border-2 border-danger" : "border border-black/[0.12]"}`}
+      style={{ width }}
       value={str}
       keyboardType={isNumber ? numberKeyboard : "default"}
       maxLength={isNumber ? 12 : 60}
@@ -79,7 +81,7 @@ function ActionButton({ icon, label, onPress, danger, color }) {
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={6}
-      style={({ pressed }) => [styles.action, danger && pressed && { backgroundColor: colors.danger }, pressed && !danger && styles.actionPressed]}
+      className={`h-7 w-[30px] items-center justify-center rounded-sm bg-black/[0.16] ${danger ? "active:bg-danger" : "active:bg-black/30"}`}
     >
       <Icon name={icon} size={15} color={color} strokeWidth={2.4} />
     </Pressable>
@@ -151,7 +153,7 @@ function BlockViewImpl({ block, spriteId, mode = "workspace" }) {
     const height = (def.container ? row.h + mouthH + FOOT_H : row.h) + NOTCH_D + 4;
     const width = Math.max(row.w, def.container ? 160 : 60) + 4;
     shape = (
-      <Svg style={styles.shape} width={width} height={height} pointerEvents="none">
+      <Svg className="absolute left-0 top-0" width={width} height={height} pointerEvents="none">
         {(active || selected) && (
           <Path d={d} fill="none" stroke={active ? colors.run : colors.focus} strokeWidth={6} strokeLinejoin="round" opacity={0.55} />
         )}
@@ -162,12 +164,12 @@ function BlockViewImpl({ block, spriteId, mode = "workspace" }) {
 
   const content = (
     <>
-      <View style={[styles.glyph, def.category === "control" && styles.glyphControl]}>
+      <View className={`h-[22px] w-[22px] items-center justify-center rounded-sm ${def.category === "control" ? "bg-white/35" : "bg-white/20"}`}>
         <Icon name={BLOCK_ICONS[block.type]} size={14} color={textColor} strokeWidth={2.4} />
       </View>
       {def.label.map((part, i) =>
         typeof part === "string" ? (
-          <Txt key={i} w={500} style={[styles.text, { color: textColor }]}>
+          <Txt key={i} w={500} className="text-sm" style={{ color: textColor }}>
             {part}
           </Txt>
         ) : (
@@ -175,7 +177,7 @@ function BlockViewImpl({ block, spriteId, mode = "workspace" }) {
         )
       )}
       {selected && (
-        <View style={styles.actions}>
+        <View className="ml-1 flex-row gap-x-1">
           <ActionButton icon="up" label="Move block up" color={textColor} onPress={() => actions.nudgeBlock(spriteId, block.id, -1)} />
           <ActionButton icon="down" label="Move block down" color={textColor} onPress={() => actions.nudgeBlock(spriteId, block.id, 1)} />
           <ActionButton icon="trash" label="Delete block" danger color={textColor} onPress={() => actions.deleteBlock(spriteId, block.id)} />
@@ -184,7 +186,14 @@ function BlockViewImpl({ block, spriteId, mode = "workspace" }) {
     </>
   );
 
-  const rowStyle = [styles.row, def.container && styles.rowC, marker && styles.hidden, !row && { backgroundColor: fill, borderRadius: radius.sm }];
+  const rowClass = [
+    "min-h-11 max-w-[560px] flex-row flex-wrap items-center gap-x-1.5 gap-y-1 px-2.5 pb-[7px] pt-[9px]",
+    def.container ? "min-w-40" : "",
+    marker ? "opacity-0" : "",
+    row ? "" : "rounded-sm",
+  ].join(" ");
+  // before the first layout there's no SVG yet, so paint the block colour directly
+  const rowStyle = row ? undefined : { backgroundColor: fill };
   const rowView = editable ? (
     <Pressable
       ref={rowRef}
@@ -194,17 +203,19 @@ function BlockViewImpl({ block, spriteId, mode = "workspace" }) {
       accessibilityRole="button"
       accessibilityLabel={`${describeBlock(block)}${active ? ", running" : ""}`}
       accessibilityHint="Tap for options, long-press to drag"
+      className={rowClass}
       style={rowStyle}
     >
       {content}
     </Pressable>
   ) : (
-    <View ref={rowRef} collapsable={false} onLayout={onRowLayout} style={rowStyle}>
+    <View ref={rowRef} collapsable={false} onLayout={onRowLayout} className={rowClass} style={rowStyle}>
       {content}
     </View>
   );
 
-  const bumpStyle = {
+  // Animated.View gets plain style objects only, NativeWind doesn't handle classes on it
+  const bumpStyle = editable && {
     transform: [
       { translateY: bump.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) },
       { scale: bump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) },
@@ -215,25 +226,30 @@ function BlockViewImpl({ block, spriteId, mode = "workspace" }) {
     <Animated.View
       ref={rootRef}
       collapsable={false}
-      style={[styles.block, isSource && styles.source, editable && bumpStyle]}
+      style={[{ alignSelf: "flex-start", alignItems: "flex-start", overflow: "visible" }, isSource && { opacity: 0.3 }, bumpStyle]}
     >
       {shape}
       {rowView}
       {def.container && (
         <>
-          <View ref={mouthRef} collapsable={false} onLayout={onMouthLayout} style={styles.mouth}>
+          <View ref={mouthRef} collapsable={false} onLayout={onMouthLayout} className="min-h-6 self-stretch" style={{ paddingLeft: ARM_W }}>
             {editable ? (
               <DropList parentId={block.id} blocks={block.children} spriteId={spriteId} />
             ) : (
-              <View style={styles.list}>
+              <View className="items-start">
                 {(block.children || []).map((c) => (
                   <BlockView key={c.id} block={c} spriteId={spriteId} mode={mode} />
                 ))}
-                {!(block.children || []).length && <View style={styles.emptySlot} />}
+                {!(block.children || []).length && <View className="h-6 w-[140px]" />}
               </View>
             )}
           </View>
-          <View ref={footRef} collapsable={false} style={[styles.foot, { width: row ? Math.max(row.w, 160) : 160 }, marker && styles.hidden]}>
+          <View
+            ref={footRef}
+            collapsable={false}
+            className={`flex-row items-center justify-end pr-2.5 pt-0.5 ${marker ? "opacity-0" : ""}`}
+            style={{ height: FOOT_H, width: row ? Math.max(row.w, 160) : 160 }}
+          >
             <Icon name={block.type === "repeatForever" ? "infinity" : "repeat"} size={13} color={textColor} />
           </View>
         </>
@@ -264,7 +280,7 @@ function InsertionMarker() {
   const block = useDraggedBlock();
   if (!block) return null;
   return (
-    <View pointerEvents="none" style={styles.marker}>
+    <View pointerEvents="none" className="opacity-80">
       <BlockView block={block} mode="marker" />
     </View>
   );
@@ -279,7 +295,7 @@ export const DropList = memo(function DropList({ parentId, blocks, spriteId }) {
     return Math.min(t.index, blocks.length);
   });
   return (
-    <View style={styles.list}>
+    <View className="items-start">
       {blocks.map((b, i) => (
         <Fragment key={b.id}>
           {targetIndex === i && <InsertionMarker />}
@@ -287,74 +303,7 @@ export const DropList = memo(function DropList({ parentId, blocks, spriteId }) {
         </Fragment>
       ))}
       {targetIndex === blocks.length && <InsertionMarker />}
-      {parentId && blocks.length === 0 && targetIndex < 0 && <View style={styles.emptySlot} />}
+      {parentId && blocks.length === 0 && targetIndex < 0 && <View className="h-6 w-[140px]" />}
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  block: { alignSelf: "flex-start", alignItems: "flex-start", overflow: "visible" },
-  source: { opacity: 0.3 },
-  shape: { position: "absolute", left: 0, top: 0 },
-  row: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    columnGap: 6,
-    rowGap: 4,
-    minHeight: 44,
-    paddingTop: 9,
-    paddingBottom: 7,
-    paddingHorizontal: 10,
-    maxWidth: 560,
-  },
-  rowC: { minWidth: 160 },
-  hidden: { opacity: 0 },
-  glyph: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  glyphControl: { backgroundColor: "rgba(255,255,255,0.35)" },
-  text: { fontSize: 13 },
-  param: {
-    height: 26,
-    minWidth: 32,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.12)",
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  paramNumber: { borderRadius: 13 },
-  paramText: { borderRadius: 6 },
-  paramLabel: { fontSize: 13, color: colors.text, textAlign: "center" },
-  paramInput: { paddingVertical: 0, paddingHorizontal: 6 },
-  paramInvalid: { borderColor: colors.danger, borderWidth: 2 },
-  actions: { flexDirection: "row", columnGap: 4, marginLeft: 4 },
-  action: {
-    width: 30,
-    height: 28,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.16)",
-  },
-  actionPressed: { backgroundColor: "rgba(0,0,0,0.3)" },
-  mouth: { alignSelf: "stretch", minHeight: 24, paddingLeft: ARM_W },
-  foot: {
-    height: FOOT_H,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingTop: 2,
-    paddingRight: 10,
-  },
-  list: { alignItems: "flex-start" },
-  emptySlot: { height: 24, width: 140 },
-  marker: { opacity: 0.8 },
 });

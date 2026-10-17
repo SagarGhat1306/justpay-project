@@ -2,13 +2,14 @@ import React, { forwardRef } from "react";
 import { Platform, Text, TextInput } from "react-native";
 import { colors, fontFor } from "../../theme";
 
-// w = font weight
-export function Txt({ w = 400, style, ...props }) {
-  return <Text {...props} style={[{ color: colors.text, fontSize: 14 }, fontFor(w), style]} />;
+// w = font weight. The font family has to go through style because it depends on
+// whether Inter loaded, everything else is className.
+export function Txt({ w = 400, className = "", style, ...props }) {
+  return <Text {...props} className={className} style={[fontFor(w), style]} />;
 }
 
 // TextInput without the Android underline and extra font padding
-export const Field = forwardRef(function Field({ w = 500, style, ...props }, ref) {
+export const Field = forwardRef(function Field({ w = 500, className = "", style, ...props }, ref) {
   return (
     <TextInput
       ref={ref}
@@ -17,7 +18,8 @@ export const Field = forwardRef(function Field({ w = 500, style, ...props }, ref
       autoCorrect={false}
       autoCapitalize="none"
       {...props}
-      style={[{ color: colors.text, fontSize: 14, paddingVertical: 0, includeFontPadding: false }, fontFor(w), style]}
+      className={`py-0 ${className}`}
+      style={[{ includeFontPadding: false }, fontFor(w), style]}
     />
   );
 });

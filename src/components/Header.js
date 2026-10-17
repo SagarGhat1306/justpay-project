@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import Svg, { Circle, Rect } from "react-native-svg";
 import { useStore } from "../state/useStore";
 import { actions } from "../state/store";
-import { colors, radius } from "../theme";
+import { colors } from "../theme";
 import { IconButton } from "./ui/Buttons";
 import { Field, Txt } from "./ui/Txt";
 import Icon from "./Icon";
@@ -19,18 +19,19 @@ function Logo({ size = 28 }) {
   );
 }
 
+const SAVE_STATES = {
+  saved: { icon: "check", text: "Saved", color: colors.runDark, className: "text-ink-2" },
+  saving: { icon: "cloud", text: "Saving…", color: colors.text2, className: "text-ink-2" },
+  error: { icon: "alert", text: "Not saved", color: colors.danger, className: "text-danger" },
+};
+
 function SaveStatus() {
   const status = useStore((s) => s.saveStatus);
-  const map = {
-    saved: { icon: "check", text: "Saved", color: colors.runDark },
-    saving: { icon: "cloud", text: "Saving…", color: colors.text2 },
-    error: { icon: "alert", text: "Not saved", color: colors.danger },
-  };
-  const m = map[status] || map.saved;
+  const m = SAVE_STATES[status] || SAVE_STATES.saved;
   return (
-    <View style={styles.save} accessibilityLabel={`Project ${m.text}`}>
+    <View className="flex-row items-center gap-x-1" accessibilityLabel={`Project ${m.text}`}>
       <Icon name={m.icon} size={14} color={m.color} />
-      <Txt style={[styles.saveText, status === "error" && { color: colors.danger }]}>{m.text}</Txt>
+      <Txt className={`text-xs ${m.className}`}>{m.text}</Txt>
     </View>
   );
 }
@@ -52,19 +53,23 @@ export default function Header({ onPlay, onStop, onReset, size = "wide" }) {
     setDraft(null);
   };
 
+  let titleSize = "w-[220px] px-2.5";
+  if (compact) titleSize = "min-w-0 flex-1 px-1.5";
+  else if (medium) titleSize = "min-w-0 max-w-[260px] flex-1 px-2.5";
+
   return (
-    <View style={[styles.bar, compact && styles.barCompact]}>
-      <View style={styles.brand}>
+    <View className={`flex-row items-center ${compact ? "h-14 gap-x-2 px-2.5" : "h-[60px] gap-x-3 px-3.5"}`}>
+      <View className="flex-row items-center gap-x-2.5">
         <Logo size={compact ? 26 : 30} />
         {!compact && (
-          <Txt w={700} style={styles.brandName}>
+          <Txt w={700} className="text-lg tracking-[-0.3px] text-ink">
             Scratch Studio
           </Txt>
         )}
       </View>
-      {!compact && <View style={styles.divider} />}
+      {!compact && <View className="h-6 w-px bg-line-strong" />}
       <Field
-        style={[styles.title, compact && styles.titleCompact, medium && styles.titleMedium]}
+        className={`h-9 rounded-md border border-transparent text-base text-ink ${titleSize}`}
         value={draft ?? title}
         maxLength={48}
         returnKeyType="done"
@@ -75,11 +80,11 @@ export default function Header({ onPlay, onStop, onReset, size = "wide" }) {
         onSubmitEditing={commitTitle}
       />
       {size === "wide" && <SaveStatus />}
-      {size === "wide" && <View style={styles.spacer} />}
-      {medium && <View style={styles.spacerSmall} />}
-      <View style={styles.toolbar}>
+      {size === "wide" && <View className="flex-1" />}
+      {medium && <View className="grow-[0.001]" />}
+      <View className="flex-row items-center gap-x-2">
         {!compact && (
-          <View style={styles.history}>
+          <View className="flex-row gap-x-0.5">
             <IconButton icon="undo" label="Undo" tone="plain" showLabel={false} onPress={actions.undo} disabled={!canUndo || running} />
             <IconButton icon="redo" label="Redo" tone="plain" showLabel={false} onPress={actions.redo} disabled={!canRedo || running} />
           </View>
@@ -98,34 +103,9 @@ export function CompactHistory() {
   const canUndo = useStore((s) => s.history.past.length > 0);
   const canRedo = useStore((s) => s.history.future.length > 0);
   return (
-    <View style={styles.history}>
+    <View className="flex-row gap-x-0.5">
       <IconButton icon="undo" label="Undo" tone="plain" size="sm" showLabel={false} onPress={actions.undo} disabled={!canUndo || running} />
       <IconButton icon="redo" label="Redo" tone="plain" size="sm" showLabel={false} onPress={actions.redo} disabled={!canRedo || running} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  bar: { height: 60, flexDirection: "row", alignItems: "center", columnGap: 12, paddingHorizontal: 14 },
-  barCompact: { height: 56, columnGap: 8, paddingHorizontal: 10 },
-  brand: { flexDirection: "row", alignItems: "center", columnGap: 10 },
-  brandName: { fontSize: 18, letterSpacing: -0.3 },
-  divider: { width: 1, height: 24, backgroundColor: colors.borderStrong },
-  title: {
-    width: 220,
-    height: 36,
-    paddingHorizontal: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "transparent",
-    fontSize: 14,
-  },
-  titleCompact: { flex: 1, width: undefined, minWidth: 0, paddingHorizontal: 6 },
-  titleMedium: { flex: 1, width: undefined, minWidth: 0, maxWidth: 260 },
-  save: { flexDirection: "row", alignItems: "center", columnGap: 4 },
-  saveText: { fontSize: 12, color: colors.text2 },
-  spacer: { flex: 1 },
-  spacerSmall: { flexGrow: 0.001 },
-  toolbar: { flexDirection: "row", alignItems: "center", columnGap: 8 },
-  history: { flexDirection: "row", columnGap: 2 },
-});

@@ -19,6 +19,7 @@
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [

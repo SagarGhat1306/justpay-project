@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Gesture, GestureDetector, ScrollView } from "react-native-gesture-handler";
 import { CATEGORIES, PALETTE } from "../engine/blocks";
 import { actions, getState } from "../state/store";
 import { endDrag, getDrag, moveDrag, startDrag, useDrag } from "../dnd/dragStore";
 import { registry } from "../dnd/registry";
-import { categoryColors, colors, radius } from "../theme";
+import { categoryColors, colors } from "../theme";
 import { haptics } from "../haptics";
 import { BlockView, describeBlock, templateBlock } from "./blocks/BlockView";
 import { Txt } from "./ui/Txt";
@@ -63,7 +63,7 @@ function PaletteItem({ type, orientation }) {
     <GestureDetector gesture={gesture}>
       <View
         collapsable={false}
-        style={styles.item}
+        className="pb-1.5"
         onLayout={(e) => {
           size.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
         }}
@@ -82,21 +82,23 @@ function PaletteItem({ type, orientation }) {
 
 function CategoryButton({ cat, active, onPress, compact }) {
   const c = categoryColors[cat.id];
+  const shape = compact ? "h-9 flex-1 flex-row justify-center gap-x-1.5" : "gap-y-1 py-2";
+  const state = active ? "border border-line bg-panel" : "active:bg-[#EEF1F6]";
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      style={({ pressed }) => [
-        compact ? styles.catCompact : styles.cat,
-        active && styles.catActive,
-        pressed && !active && styles.catPressed,
-      ]}
+      className={`items-center rounded-md ${shape} ${state}`}
     >
-      <View style={[styles.catDot, { backgroundColor: c.fill }, active && { borderColor: c.fill + "55", borderWidth: 3 }]}>
+      {/* category colour comes from JS, so it stays inline */}
+      <View
+        className={`h-[26px] w-[26px] items-center justify-center rounded-full ${active ? "border-[3px]" : ""}`}
+        style={[{ backgroundColor: c.fill }, active && { borderColor: c.fill + "55" }]}
+      >
         <Icon name={cat.icon} size={13} color="#FFFFFF" strokeWidth={2.4} />
       </View>
-      <Txt w={600} style={[styles.catLabel, compact && styles.catLabelCompact, active && { color: colors.text }]}>
+      <Txt w={600} className={`${compact ? "text-xs" : "text-2xs"} ${active ? "text-ink" : "text-ink-2"}`}>
         {cat.label}
       </Txt>
     </Pressable>
@@ -120,8 +122,15 @@ export default function Palette({ orientation = "column" }) {
   const current = CATEGORIES.find((c) => c.id === category);
 
   return (
-    <View ref={rootRef} collapsable={false} style={[styles.panel, row ? styles.panelRow : styles.panelColumn]}>
-      <View style={row ? styles.catsRow : styles.catsColumn} accessibilityRole="tablist">
+    <View
+      ref={rootRef}
+      collapsable={false}
+      className={`overflow-hidden rounded-lg border border-line bg-panel ${row ? "flex-col" : "flex-row"}`}
+    >
+      <View
+        className={row ? "flex-row gap-x-1 border-b border-line bg-panel-soft p-1.5" : "w-[68px] gap-y-1 border-r border-line bg-panel-soft px-1.5 py-2"}
+        accessibilityRole="tablist"
+      >
         {CATEGORIES.map((c) => (
           <CategoryButton key={c.id} cat={c} compact={row} active={c.id === category} onPress={() => setCategory(c.id)} />
         ))}
@@ -131,13 +140,13 @@ export default function Palette({ orientation = "column" }) {
         horizontal={row}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
-        style={row ? styles.stripScroll : styles.listScroll}
-        contentContainerStyle={row ? styles.strip : styles.list}
+        className={row ? "grow-0" : "flex-1"}
+        contentContainerClassName={row ? "items-start gap-x-2 px-2.5 pb-3 pt-2.5" : "items-start gap-y-1.5 p-3.5"}
       >
         {!row && (
-          <View style={styles.titleRow}>
-            <View style={[styles.swatch, { backgroundColor: categoryColors[category].fill }]} />
-            <Txt w={600} style={styles.title}>
+          <View className="mb-1.5 flex-row items-center gap-x-2">
+            <View className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: categoryColors[category].fill }} />
+            <Txt w={600} className="text-md text-ink">
               {current.label}
             </Txt>
           </View>
@@ -146,16 +155,21 @@ export default function Palette({ orientation = "column" }) {
           <PaletteItem key={type} type={type} orientation={orientation} />
         ))}
         {!row && (
-          <Txt style={styles.hint}>
+          <Txt className="mt-2.5 self-stretch border-t border-dashed border-line pt-2.5 text-xs text-ink-2">
             {category === "control" ? "Drop blocks inside a Repeat to loop them." : "Drag a block into the script, or tap to add it."}
           </Txt>
         )}
       </ScrollView>
 
       {draggingBlock && (
-        <View pointerEvents="none" style={[styles.deleteOverlay, overDelete && styles.deleteOverlayHot]}>
+        <View
+          pointerEvents="none"
+          className={`absolute inset-0 items-center justify-center gap-y-1.5 rounded-lg border-2 border-dashed ${
+            overDelete ? "border-danger bg-[rgba(253,220,221,0.97)]" : "border-[#F5A3A6] bg-[rgba(253,236,236,0.9)]"
+          }`}
+        >
           <Icon name="trash" size={22} color={colors.danger} />
-          <Txt w={600} style={styles.deleteText}>
+          <Txt w={600} className="text-sm text-danger">
             Drop here to delete
           </Txt>
         </View>
@@ -163,78 +177,3 @@ export default function Palette({ orientation = "column" }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-  },
-  panelColumn: { flexDirection: "row" },
-  panelRow: { flexDirection: "column" },
-  catsColumn: {
-    width: 68,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    rowGap: 4,
-    backgroundColor: colors.panelSoft,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  catsRow: {
-    flexDirection: "row",
-    padding: 6,
-    columnGap: 4,
-    backgroundColor: colors.panelSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  cat: { alignItems: "center", rowGap: 4, paddingVertical: 8, borderRadius: radius.md },
-  catCompact: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    columnGap: 6,
-    height: 36,
-    borderRadius: radius.md,
-  },
-  catActive: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
-  catPressed: { backgroundColor: "#EEF1F6" },
-  catDot: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  catLabel: { fontSize: 11, color: colors.text2 },
-  catLabelCompact: { fontSize: 12 },
-  listScroll: { flex: 1 },
-  list: { padding: 14, rowGap: 6, alignItems: "flex-start" },
-  stripScroll: { flexGrow: 0 },
-  strip: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 12, columnGap: 8, alignItems: "flex-start" },
-  titleRow: { flexDirection: "row", alignItems: "center", columnGap: 8, marginBottom: 6 },
-  swatch: { width: 10, height: 10, borderRadius: 3 },
-  title: { fontSize: 15 },
-  item: { paddingBottom: 6 },
-  hint: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    borderStyle: "dashed",
-    fontSize: 12,
-    color: colors.text2,
-    alignSelf: "stretch",
-  },
-  deleteOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    rowGap: 6,
-    backgroundColor: "rgba(253,236,236,0.9)",
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#F5A3A6",
-    borderRadius: radius.lg,
-  },
-  deleteOverlayHot: { backgroundColor: "rgba(253,220,221,0.97)", borderColor: colors.danger },
-  deleteText: { color: colors.danger, fontSize: 13 },
-});

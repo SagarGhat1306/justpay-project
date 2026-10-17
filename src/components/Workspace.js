@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Gesture, GestureDetector, ScrollView } from "react-native-gesture-handler";
 import Svg, { Circle, Defs, Path, Pattern, Rect } from "react-native-svg";
 import { useStore } from "../state/useStore";
@@ -8,7 +8,7 @@ import { countBlocks } from "../engine/blocks";
 import { endDrag, getDrag, moveDrag, startDragWithGeometry, useDrag } from "../dnd/dragStore";
 import { measureGeometry, registry } from "../dnd/registry";
 import { blockAt } from "../dnd/hitTest";
-import { colors, radius } from "../theme";
+import { colors } from "../theme";
 import { haptics } from "../haptics";
 import { DropList } from "./blocks/BlockView";
 import { NOTCH_D, hatPath } from "./blocks/shapes";
@@ -22,7 +22,7 @@ function HatBlock() {
   const [size, setSize] = useState(null);
   return (
     <View
-      style={styles.hat}
+      className="h-[58px] min-w-[132px] flex-row items-center gap-x-1.5 px-3.5 pb-1 pt-4"
       accessibilityLabel="When Play is clicked"
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
@@ -30,17 +30,17 @@ function HatBlock() {
       }}
     >
       {size && (
-        <Svg style={styles.shape} width={size.w + 4} height={size.h + NOTCH_D + 4} pointerEvents="none">
+        <Svg className="absolute left-0 top-0" width={size.w + 4} height={size.h + NOTCH_D + 4} pointerEvents="none">
           <Path d={hatPath(size.w, size.h)} fill={colors.run} stroke={colors.runDark} strokeWidth={1} />
         </Svg>
       )}
-      <Txt w={600} style={styles.hatText}>
+      <Txt w={600} className="text-sm text-white">
         when
       </Txt>
-      <View style={styles.hatFlag}>
+      <View className="h-[22px] w-[22px] items-center justify-center rounded-full bg-white/25">
         <Icon name="play" size={11} color="#FFFFFF" />
       </View>
-      <Txt w={600} style={styles.hatText}>
+      <Txt w={600} className="text-sm text-white">
         clicked
       </Txt>
     </View>
@@ -49,7 +49,7 @@ function HatBlock() {
 
 function DotGrid() {
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
+    <Svg className="absolute inset-0" width="100%" height="100%" pointerEvents="none">
       <Defs>
         <Pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
           <Circle cx="10" cy="10" r="1" fill={colors.dot} />
@@ -59,6 +59,8 @@ function DotGrid() {
     </Svg>
   );
 }
+
+const PILL = "h-[22px] flex-row items-center gap-x-1 rounded-full border px-2";
 
 export default function Workspace({ compact }) {
   const spriteId = useStore((s) => s.selectedId);
@@ -146,42 +148,44 @@ export default function Workspace({ compact }) {
   /* eslint-enable react-hooks/refs */
 
   return (
-    <View style={styles.panel}>
-      <View style={[styles.head, compact && styles.headCompact]}>
-        <View style={styles.avatar}>
+    <View className="flex-1 overflow-hidden rounded-lg border border-line bg-panel">
+      <View className={`flex-row items-center gap-x-2 border-b border-line py-2 pr-2.5 ${compact ? "min-h-11 pl-2.5" : "min-h-12 pl-3.5"}`}>
+        <View className="h-7 w-7 items-center justify-center rounded-md border border-line bg-panel-soft">
           <SpriteArt costume={costume} size={22} />
         </View>
-        <Txt w={600} style={styles.title} numberOfLines={1}>
+        <Txt w={600} className="shrink text-base text-ink" numberOfLines={1}>
           {name}
-          <Txt w={500} style={styles.muted}>
+          <Txt w={500} className="text-base text-ink-3">
             {" "}
             · script
           </Txt>
         </Txt>
-        <View style={styles.pill}>
-          <Txt w={500} style={styles.pillText}>
+        <View className={`${PILL} border-line bg-panel-soft`}>
+          <Txt w={500} className="text-xs text-ink-2">
             {count} {count === 1 ? "block" : "blocks"}
           </Txt>
         </View>
         {running && (
-          <View style={[styles.pill, styles.pillRun]}>
-            <View style={styles.runDot} />
-            <Txt w={500} style={[styles.pillText, { color: colors.runDark }]}>
+          <View className={`${PILL} border-run-border bg-run-soft`}>
+            <View className="h-[7px] w-[7px] rounded-full bg-run" />
+            <Txt w={500} className="text-xs text-run-dark">
               Running
             </Txt>
           </View>
         )}
-        <View style={styles.spacer} />
+        <View className="flex-1" />
         <Pressable
           onPress={() => actions.clearProgram(spriteId)}
           disabled={count === 0}
           accessibilityRole="button"
           accessibilityLabel="Clear script"
-          style={({ pressed }) => [styles.ghostBtn, pressed && styles.ghostBtnPressed, count === 0 && styles.disabled]}
+          className={`h-8 min-w-9 flex-row items-center justify-center gap-x-1.5 rounded-md border border-line px-2.5 active:bg-panel-soft ${
+            count === 0 ? "opacity-[0.45]" : ""
+          }`}
         >
           <Icon name="trash" size={15} color={colors.text2} />
           {!compact && (
-            <Txt w={600} style={styles.ghostBtnText}>
+            <Txt w={600} className="text-sm text-ink-2">
               Clear
             </Txt>
           )}
@@ -191,7 +195,7 @@ export default function Workspace({ compact }) {
       <View
         ref={viewportRef}
         collapsable={false}
-        style={styles.viewport}
+        className="flex-1 bg-canvas"
         onLayout={(e) => {
           registry.viewportHeight = e.nativeEvent.layout.height;
         }}
@@ -210,164 +214,43 @@ export default function Workspace({ compact }) {
           onContentSizeChange={(w, h) => {
             registry.contentHeight = h;
           }}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerClassName="grow"
         >
           <GestureDetector gesture={pan}>
-            <Pressable onPress={() => actions.selectBlock(null)} style={[styles.script, compact && styles.scriptCompact]} accessible={false}>
+            <Pressable
+              onPress={() => actions.selectBlock(null)}
+              className={`grow items-start pb-40 ${compact ? "px-3 pt-3.5" : "px-[22px] pt-5"}`}
+              accessible={false}
+            >
               <HatBlock />
               <DropList parentId={null} blocks={program} spriteId={spriteId} />
               {program.length === 0 && (
-                <View style={styles.empty}>
-                  <View style={styles.emptyIcon}>
+                <View className="mt-[18px] max-w-[300px] items-center rounded-lg border-2 border-dashed border-line-strong bg-white/90 p-[18px]">
+                  <View className="h-10 w-10 items-center justify-center rounded-full bg-[#EEF4FF]">
                     <Icon name="sparkles" size={22} color={colors.motion} />
                   </View>
-                  <Txt w={600} style={styles.emptyTitle}>
+                  <Txt w={600} className="mb-1 mt-2 text-base text-ink">
                     {name}’s script is empty
                   </Txt>
-                  <Txt style={styles.emptyText}>
+                  <Txt className="text-center text-sm leading-[19px] text-ink-2">
                     {compact
                       ? "Drag a block down from the palette and snap it under “when ▶ clicked”, or tap a block to add it."
                       : "Drag blocks from the palette and snap them under “when ▶ clicked”, or tap a block to add it."}
                   </Txt>
                 </View>
               )}
-              {program.length > 0 && (
-                <Txt style={styles.tip}>Tap a block for options · long-press to drag it</Txt>
-              )}
+              {program.length > 0 && <Txt className="mt-[22px] text-xs text-ink-3">Tap a block for options · long-press to drag it</Txt>}
             </Pressable>
           </GestureDetector>
         </ScrollView>
       </View>
 
       {error ? (
-        <View style={styles.banner} accessibilityRole="alert">
+        <View className="m-2.5 flex-row items-center gap-x-2 rounded-md border border-[#F5C2C4] bg-danger-soft p-2.5" accessibilityRole="alert">
           <Icon name="alert" size={16} color="#A3262B" />
-          <Txt style={styles.bannerText}>Script stopped: {error}</Txt>
+          <Txt className="shrink text-sm text-[#A3262B]">Script stopped: {error}</Txt>
         </View>
       ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: {
-    flex: 1,
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-  },
-  head: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 8,
-    minHeight: 48,
-    paddingVertical: 8,
-    paddingLeft: 14,
-    paddingRight: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headCompact: { minHeight: 44, paddingLeft: 10 },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.panelSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: { fontSize: 14, flexShrink: 1 },
-  muted: { color: colors.text3, fontSize: 14 },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 4,
-    height: 22,
-    paddingHorizontal: 8,
-    borderRadius: 11,
-    backgroundColor: colors.panelSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pillRun: { backgroundColor: colors.runSoft, borderColor: colors.runBorder },
-  pillText: { fontSize: 12, color: colors.text2 },
-  runDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.run },
-  spacer: { flex: 1 },
-  ghostBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 6,
-    height: 32,
-    minWidth: 36,
-    justifyContent: "center",
-    paddingHorizontal: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  ghostBtnPressed: { backgroundColor: colors.panelSoft },
-  ghostBtnText: { fontSize: 13, color: colors.text2 },
-  disabled: { opacity: 0.45 },
-  viewport: { flex: 1, backgroundColor: colors.canvas },
-  scrollContent: { flexGrow: 1 },
-  script: { flexGrow: 1, alignItems: "flex-start", paddingTop: 20, paddingHorizontal: 22, paddingBottom: 160 },
-  scriptCompact: { paddingHorizontal: 12, paddingTop: 14 },
-  hat: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 6,
-    minWidth: 132,
-    height: 58,
-    paddingTop: 16,
-    paddingBottom: 4,
-    paddingHorizontal: 14,
-  },
-  shape: { position: "absolute", left: 0, top: 0 },
-  hatText: { color: "#FFFFFF", fontSize: 13 },
-  hatFlag: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.25)",
-  },
-  empty: {
-    maxWidth: 300,
-    marginTop: 18,
-    padding: 18,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: colors.borderStrong,
-    borderRadius: radius.lg,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    alignItems: "center",
-  },
-  emptyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EEF4FF",
-  },
-  emptyTitle: { marginTop: 8, marginBottom: 4, fontSize: 14 },
-  emptyText: { fontSize: 13, color: colors.text2, textAlign: "center", lineHeight: 19 },
-  tip: { marginTop: 22, fontSize: 12, color: colors.text3 },
-  banner: {
-    flexDirection: "row",
-    alignItems: "center",
-    columnGap: 8,
-    margin: 10,
-    padding: 10,
-    borderRadius: radius.md,
-    backgroundColor: colors.dangerSoft,
-    borderWidth: 1,
-    borderColor: "#F5C2C4",
-  },
-  bannerText: { fontSize: 13, color: "#A3262B", flexShrink: 1 },
-});

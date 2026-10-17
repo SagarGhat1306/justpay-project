@@ -1,5 +1,7 @@
+import "./global.css";
+import "./src/interop";
 import React, { useCallback, useEffect, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Pressable, View, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -21,7 +23,7 @@ import { actions, getState, hydrate } from "./src/state/store";
 import { startAutosave } from "./src/state/persistence";
 import { dispose, play, reset, setReducedMotion, stop } from "./src/engine/runtime";
 import { setDropHandler } from "./src/dnd/dragStore";
-import { colors, fontState, radius } from "./src/theme";
+import { colors, fontState } from "./src/theme";
 
 // from the palette = add a new block, from the script = move it, onto the palette = delete
 function handleDrop(payload, target) {
@@ -52,10 +54,10 @@ function Tab({ id, icon, label, tab, setTab }) {
       onPress={() => setTab(id)}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      style={[styles.tab, active && styles.tabActive]}
+      className={`h-9 flex-1 flex-row items-center justify-center gap-x-1.5 rounded-md ${active ? "border border-line bg-panel" : ""}`}
     >
       <Icon name={icon} size={16} color={active ? colors.text : colors.text2} />
-      <Txt w={600} style={[styles.tabText, active && { color: colors.text }]}>
+      <Txt w={600} className={`text-sm ${active ? "text-ink" : "text-ink-2"}`}>
         {label}
       </Txt>
     </Pressable>
@@ -64,7 +66,7 @@ function Tab({ id, icon, label, tab, setTab }) {
 
 function Tabs({ tab, setTab }) {
   return (
-    <View style={styles.tabs} accessibilityRole="tablist">
+    <View className="flex-1 flex-row gap-x-1 rounded-lg bg-[#E9EDF3] p-1" accessibilityRole="tablist">
       <Tab id="code" icon="code" label="Code" tab={tab} setTab={setTab} />
       <Tab id="stage" icon="monitor" label="Stage & sprites" tab={tab} setTab={setTab} />
     </View>
@@ -91,24 +93,24 @@ function Studio() {
   }, [mode]);
 
   return (
-    <View style={styles.app}>
+    <View className="flex-1">
       <Header onPlay={onPlay} onStop={stop} onReset={reset} size={mode} />
       {mode !== "wide" && (
-        <View style={styles.tabRow}>
+        <View className="flex-row items-center gap-x-2 px-3 pb-2.5">
           <Tabs tab={tab} setTab={setTab} />
           {compact && <CompactHistory />}
         </View>
       )}
-      <View style={[styles.layout, compact && styles.layoutCompact]}>
+      <View className={`flex-1 flex-row ${compact ? "gap-x-2 px-2 pb-2" : "gap-x-3 px-3 pb-3"}`}>
         {mode === "wide" && (
           <>
-            <View style={styles.paletteCol}>
+            <View className="w-[340px]">
               <Palette orientation="column" />
             </View>
-            <View style={styles.flex}>
+            <View className="min-w-0 flex-1">
               <Workspace />
             </View>
-            <View style={styles.previewCol}>
+            <View className="w-[380px]">
               <PreviewArea />
             </View>
           </>
@@ -116,26 +118,26 @@ function Studio() {
         {mode === "medium" &&
           (tab === "code" ? (
             <>
-              <View style={styles.paletteColMedium}>
+              <View className="w-[300px]">
                 <Palette orientation="column" />
               </View>
-              <View style={styles.flex}>
+              <View className="min-w-0 flex-1">
                 <Workspace />
               </View>
             </>
           ) : (
-            <View style={styles.previewCentered}>
+            <View className="mx-auto w-full max-w-[720px] flex-1 self-center">
               <PreviewArea />
             </View>
           ))}
         {mode === "narrow" &&
           (tab === "code" ? (
-            <View style={[styles.flex, styles.stack]}>
+            <View className="min-w-0 flex-1 gap-y-2">
               <Palette orientation="row" />
               <Workspace compact />
             </View>
           ) : (
-            <View style={styles.flex}>
+            <View className="min-w-0 flex-1">
               <PreviewArea compact />
             </View>
           ))}
@@ -170,14 +172,14 @@ export default function App() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView className="flex-1 bg-app">
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <SafeAreaView style={styles.root} edges={["top", "left", "right", "bottom"]}>
+        <SafeAreaView className="flex-1 bg-app" edges={["top", "left", "right", "bottom"]}>
           {ready ? (
             <Studio />
           ) : (
-            <View style={styles.loading}>
+            <View className="flex-1 items-center justify-center">
               <ActivityIndicator color={colors.motion} />
             </View>
           )}
@@ -187,37 +189,3 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  app: { flex: 1 },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  flex: { flex: 1, minWidth: 0 },
-  stack: { rowGap: 8 },
-  layout: { flex: 1, flexDirection: "row", columnGap: 12, paddingHorizontal: 12, paddingBottom: 12 },
-  layoutCompact: { columnGap: 8, paddingHorizontal: 8, paddingBottom: 8 },
-  paletteCol: { width: 340 },
-  paletteColMedium: { width: 300 },
-  previewCol: { width: 380 },
-  previewCentered: { flex: 1, maxWidth: 720, width: "100%", alignSelf: "center", marginHorizontal: "auto" },
-  tabRow: { flexDirection: "row", alignItems: "center", columnGap: 8, paddingHorizontal: 12, paddingBottom: 10 },
-  tabs: {
-    flex: 1,
-    flexDirection: "row",
-    columnGap: 4,
-    padding: 4,
-    borderRadius: radius.lg,
-    backgroundColor: "#E9EDF3",
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    columnGap: 6,
-    height: 36,
-    borderRadius: radius.md,
-  },
-  tabActive: { backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.border },
-  tabText: { fontSize: 13, color: colors.text2 },
-});

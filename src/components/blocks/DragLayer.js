@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import { useDrag } from "../../dnd/dragStore";
 import { shadow } from "../../theme";
 import { BlockView, useDraggedBlock } from "./BlockView";
@@ -22,14 +22,18 @@ export default function DragLayer() {
   };
 
   const deleting = drag && drag.target && drag.target.type === "delete";
+  let opacity = "opacity-75";
+  if (deleting) opacity = "opacity-50";
+  else if (drag && drag.target) opacity = "opacity-[0.97]";
+
   return (
-    <View ref={ref} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={onLayout}>
+    <View ref={ref} collapsable={false} pointerEvents="none" className="absolute inset-0" onLayout={onLayout}>
       {drag && block && (
         <View
+          className={`absolute left-0 top-0 ${opacity}`}
           style={[
-            styles.ghost,
+            shadow.lg,
             {
-              opacity: deleting ? 0.5 : drag.target ? 0.97 : 0.75,
               transform: [
                 { translateX: drag.x - drag.offsetX - origin.x },
                 { translateY: drag.y - drag.offsetY - origin.y },
@@ -44,7 +48,3 @@ export default function DragLayer() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  ghost: { position: "absolute", left: 0, top: 0, ...shadow.lg },
-});
