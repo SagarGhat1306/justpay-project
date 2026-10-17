@@ -100,6 +100,7 @@ function initialState(project) {
     lastPlaced: null, // last dropped block, for the little bump animation
     selectedBlockId: null, // tapped block, shows up/down/delete buttons
     lastSwap: null, // for the swap toast on the stage
+    lastHit: null, // last collision { n, ids, x, y, at }, drives the bump animation
     errors: {}, // spriteId: error message
     projectVersion: 0,
     saveStatus: "saved",
@@ -333,6 +334,7 @@ export const actions = {
         selectedId: sprites[0].id,
         swapCount: 0,
         lastSwap: null,
+        lastHit: null,
         errors: {},
         projectVersion: s.projectVersion + 1,
         history: { past: [...s.history.past, snapshotPrograms(s)].slice(-HISTORY_LIMIT), future: [], lastKey: null, lastAt: 0 },

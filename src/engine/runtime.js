@@ -32,11 +32,13 @@ let frameTime = 0;
 let activePairs = new Set();
 let swapLog = []; // swaps done since the last Reset, so Reset can undo them
 let runSeq = 0;
+let hitSeq = 0;
 
 let reducedMotion = false; // App.js keeps this in sync with the OS setting
 export function setReducedMotion(value) {
   reducedMotion = Boolean(value);
 }
+export const prefersReducedMotion = () => reducedMotion;
 
 function tick(t) {
   rafId = null;
@@ -59,10 +61,14 @@ function checkCollisions() {
     let sprites = st.sprites;
     let swapCount = st.swapCount;
     let lastSwap = st.lastSwap;
+    let lastHit = st.lastHit;
     for (const [aId, bId] of pairs) {
       const a = sprites.find((x) => x.id === aId);
       const b = sprites.find((x) => x.id === bId);
       if (!a || !b) continue;
+      // the stage plays the bump animation from this, even if there was nothing to swap
+      hitSeq += 1;
+      lastHit = { n: hitSeq, ids: [aId, bId], x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, at: Date.now() };
       const res = swapMoveSteps(a.program, b.program);
       if (!res.pairs.length) continue;
       swapLog.push({ a: aId, b: bId, pairs: res.pairs });
@@ -74,7 +80,8 @@ function checkCollisions() {
       swapCount += 1;
       lastSwap = { names: [a.name, b.name], ids: [aId, bId], at: Date.now(), n: swapCount };
     }
-    return sprites === st.sprites ? st : { ...st, sprites, swapCount, lastSwap };
+    if (sprites === st.sprites && lastHit === st.lastHit) return st;
+    return { ...st, sprites, swapCount, lastSwap, lastHit };
   });
 }
 
@@ -221,7 +228,7 @@ export function reset() {
   swapLog = [];
   setState((st) => {
     const sprites = undoSwaps(st.sprites, log).map((x) => ({ ...x, ...x.initial }));
-    return { ...st, sprites, swapCount: 0, lastSwap: null, errors: {}, bubbles: {}, activeBlocks: {} };
+    return { ...st, sprites, swapCount: 0, lastSwap: null, lastHit: null, errors: {}, bubbles: {}, activeBlocks: {} };
   });
 }
 

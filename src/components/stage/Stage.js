@@ -1,19 +1,46 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, View } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useStore } from "../../state/useStore";
-import { actions, getSprite } from "../../state/store";
+import { actions, getSprite, getState } from "../../state/store";
 import { HALF_H, HALF_W, STAGE_HEIGHT, STAGE_WIDTH, round, toScreen } from "../../engine/coords";
+import { prefersReducedMotion } from "../../engine/runtime";
 import { colors, radius, shadow } from "../../theme";
+import { haptics } from "../../haptics";
 import SpriteArt from "../SpriteArt";
 import { Txt } from "../ui/Txt";
 import Icon from "../Icon";
+
+const nativeDriver = Platform.OS !== "web";
+
+// A hit we're seeing for the first time should animate. One that's old (say the stage
+// tab was opened after the collision happened) shouldn't replay.
+const isFresh = (hit) => Boolean(hit) && Date.now() - hit.at < 400;
 
 function SpriteNode({ sprite, scale, selected, running }) {
   const { left, top } = toScreen(sprite.x, sprite.y, scale);
   const w = sprite.width * scale;
   const h = sprite.height * scale;
   const start = useRef({ x: 0, y: 0 });
+
+  // On a hit the sprite squashes and gets knocked away from the other one, then
+  // springs back. side is -1 / 1 depending on which side of the impact it's on.
+  const hitN = useStore((s) => (s.lastHit && s.lastHit.ids.includes(sprite.id) ? s.lastHit.n : 0));
+  const side = useStore((s) => {
+    const hit = s.lastHit;
+    if (!hit || !hit.ids.includes(sprite.id)) return 0;
+    const me = getSprite(sprite.id, s);
+    return Math.sign((me ? me.x : 0) - hit.x) || (hit.ids[0] === sprite.id ? -1 : 1);
+  });
+  const [bump] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (!hitN || prefersReducedMotion() || !isFresh(getState().lastHit)) return undefined;
+    bump.setValue(1);
+    // JS driver on purpose: the same transform also holds the position, which changes every frame
+    const anim = Animated.spring(bump, { toValue: 0, speed: 14, bounciness: 16, useNativeDriver: false });
+    anim.start();
+    return () => anim.stop();
+  }, [hitN, bump]);
 
   // keep the latest x/y in a ref so the gesture doesn't have to be rebuilt every time it moves
   const pos = useRef({ x: sprite.x, y: sprite.y });
@@ -50,7 +77,7 @@ function SpriteNode({ sprite, scale, selected, running }) {
 
   return (
     <GestureDetector gesture={gesture}>
-      <View
+      <Animated.View
         accessible
         accessibilityRole="image"
         accessibilityLabel={`${sprite.name} at x ${Math.round(sprite.x)}, y ${Math.round(sprite.y)}, direction ${Math.round(sprite.direction)}`}
@@ -59,13 +86,28 @@ function SpriteNode({ sprite, scale, selected, running }) {
           {
             width: w,
             height: h,
-            transform: [{ translateX: left - w / 2 }, { translateY: top - h / 2 }, { rotate: `${sprite.direction - 90}deg` }],
+            transform: [
+              // knockback goes first so it's along the stage, not along the sprite's rotation
+              { translateX: bump.interpolate({ inputRange: [0, 1], outputRange: [0, side * 12 * scale] }) },
+              { translateX: left - w / 2 },
+              { translateY: top - h / 2 },
+              { rotate: `${sprite.direction - 90}deg` },
+            ],
           },
         ]}
       >
-        <SpriteArt costume={sprite.costume} size={w} />
+        <Animated.View
+          style={{
+            transform: [
+              { scaleX: bump.interpolate({ inputRange: [0, 1], outputRange: [1, 0.76] }) },
+              { scaleY: bump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] }) },
+            ],
+          }}
+        >
+          <SpriteArt costume={sprite.costume} size={w} />
+        </Animated.View>
         {selected && <View pointerEvents="none" style={styles.selection} />}
-      </View>
+      </Animated.View>
     </GestureDetector>
   );
 }
@@ -101,6 +143,82 @@ function Bubble({ sprite, bubble, scale, stageW, stageH }) {
       ) : (
         <View style={[styles.tail, { left: tail - 7 }, below ? styles.tailUp : styles.tailDown]} />
       )}
+    </View>
+  );
+}
+
+const SPARKS = [0, 45, 90, 135, 180, 225, 270, 315];
+
+// The "pow" where two sprites meet: a quick flash, a ring that spreads out, sparks
+// flying off and a lightning icon that pops. t starts at 1 (everything invisible)
+// and only runs 0 -> 1 for a fresh hit, so a stale one never shows.
+function CollisionBurst({ scale }) {
+  const hit = useStore((s) => s.lastHit);
+  const [t] = useState(() => new Animated.Value(1));
+  const [doneFor, setDoneFor] = useState(0);
+
+  useEffect(() => {
+    if (!isFresh(hit)) return undefined;
+    haptics.collide();
+    if (prefersReducedMotion()) return undefined;
+    t.setValue(0);
+    const anim = Animated.timing(t, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: nativeDriver });
+    anim.start(({ finished }) => finished && setDoneFor(hit.n));
+    return () => anim.stop();
+  }, [hit, t]);
+
+  if (!hit || doneFor === hit.n) return null;
+
+  const { left, top } = toScreen(hit.x, hit.y, scale);
+  const r = 48 * scale;
+  const box = { left: left - r, top: top - r, width: r * 2, height: r * 2 };
+  const fade = (from, to) => t.interpolate({ inputRange: [0, from, to, 1], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
+
+  return (
+    <View pointerEvents="none" style={[styles.burst, box]}>
+      <Animated.View
+        style={[
+          styles.flash,
+          { borderRadius: r, opacity: fade(0.05, 0.2), transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.1] }) }] },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.ring,
+          {
+            borderRadius: r,
+            borderWidth: Math.max(2, 4 * scale),
+            opacity: fade(0.02, 0.5),
+            transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1.5] }) }],
+          },
+        ]}
+      />
+      {SPARKS.map((deg, i) => (
+        <View key={deg} style={[StyleSheet.absoluteFill, styles.center, { transform: [{ rotate: `${deg}deg` }] }]}>
+          <Animated.View
+            style={{
+              width: Math.max(3, 5 * scale),
+              height: Math.max(8, 14 * scale),
+              borderRadius: 4,
+              backgroundColor: i % 2 ? colors.motion : colors.control,
+              opacity: fade(0.02, 0.6),
+              transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [-r * 0.2, -r * 1.05] }) }],
+            }}
+          />
+        </View>
+      ))}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.center,
+          {
+            opacity: fade(0.02, 0.65),
+            transform: [{ scale: t.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.2, 1.3, 0.9] }) }],
+          },
+        ]}
+      >
+        <Icon name="zap" size={Math.max(20, 34 * scale)} color={colors.controlDark} strokeWidth={2.4} />
+      </Animated.View>
     </View>
   );
 }
@@ -158,6 +276,7 @@ export default function Stage({ width: fixedWidth, rounded = true }) {
           {sprites.map((sp) =>
             bubbles[sp.id] ? <Bubble key={`b-${sp.id}`} sprite={sp} bubble={bubbles[sp.id]} scale={scale} stageW={width} stageH={height} /> : null
           )}
+          <CollisionBurst scale={scale} />
           <SwapToast />
           <View pointerEvents="none" style={styles.coords}>
             <Txt w={500} style={styles.coordsText}>
@@ -183,6 +302,10 @@ const styles = StyleSheet.create({
   axisV: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "#EDF0F5" },
   axisH: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "#EDF0F5" },
   sprite: { position: "absolute", left: 0, top: 0 },
+  burst: { position: "absolute" },
+  center: { alignItems: "center", justifyContent: "center" },
+  flash: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255, 214, 102, 0.55)" },
+  ring: { ...StyleSheet.absoluteFillObject, borderColor: colors.control },
   selection: {
     position: "absolute",
     left: -3,

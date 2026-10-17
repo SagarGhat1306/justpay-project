@@ -16,4 +16,5 @@ export const haptics = {
   pickUp: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
   snap: () => safe(() => Haptics.selectionAsync()),
   remove: () => safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
+  collide: () => safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)),
 };
