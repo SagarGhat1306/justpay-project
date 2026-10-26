@@ -1,20 +1,38 @@
-// Collision detection + the "swap moves" behaviour.
-//
-// Hit boxes are plain axis-aligned rectangles around each sprite. Rotation is ignored,
-// it's close enough for these costumes.
-//
-// When two sprites start touching, their move blocks trade `steps` values. 1st move
-// with 1st move, 2nd with 2nd and so on (moves inside repeats count too), stopping at
-// whichever sprite has fewer. We change the real program data, so the running script
-// picks up the new value on its next move and the editor shows it too. Swapping the
-// same pair again puts things back, which is how Reset undoes it.
+
 
 import { collectByType, updateParams, findBlock } from "./blocks";
+import { COSTUMES } from "../state/costumes";
+
+const FULL_BOX = { left: 0, top: 0, right: 100, bottom: 100 };
 
 export function getBounds(sprite) {
-  const hw = sprite.width / 2;
-  const hh = sprite.height / 2;
-  return { left: sprite.x - hw, right: sprite.x + hw, bottom: sprite.y - hh, top: sprite.y + hh };
+  const box = (COSTUMES[sprite.costume] && COSTUMES[sprite.costume].hitbox) || FULL_BOX;
+  // art units (100x100, y down, centre at 50,50) -> offsets from the sprite centre in screen units
+  const sx = sprite.width / 100;
+  const sy = sprite.height / 100;
+  const corners = [
+    [box.left, box.top],
+    [box.right, box.top],
+    [box.right, box.bottom],
+    [box.left, box.bottom],
+  ].map(([x, y]) => [(x - 50) * sx, (y - 50) * sy]);
+  // same rotation the stage draws with: (direction - 90) degrees clockwise on screen
+  const r = (((sprite.direction ?? 90) - 90) * Math.PI) / 180;
+  const cos = Math.cos(r);
+  const sin = Math.sin(r);
+  let left = Infinity;
+  let right = -Infinity;
+  let bottom = Infinity;
+  let top = -Infinity;
+  for (const [x, y] of corners) {
+    const rx = x * cos - y * sin;
+    const ry = -(x * sin + y * cos); // screen y is down, stage y is up
+    left = Math.min(left, rx);
+    right = Math.max(right, rx);
+    bottom = Math.min(bottom, ry);
+    top = Math.max(top, ry);
+  }
+  return { left: sprite.x + left, right: sprite.x + right, bottom: sprite.y + bottom, top: sprite.y + top };
 }
 
 export function overlaps(a, b) {
@@ -25,9 +43,7 @@ export function overlaps(a, b) {
 
 export const pairKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
-// Only reports pairs that *just* started touching. `activePairs` is what was overlapping
-// last frame. Without this, two sprites sitting on top of each other would swap back and
-// forth every single frame. Once they separate they can trigger again.
+
 export function detectCollisionStarts(sprites, activePairs) {
   const active = new Set();
   const started = [];

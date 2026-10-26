@@ -157,7 +157,8 @@ export function play() {
   runSeq += 1;
   const runToken = { id: runSeq, cancelled: false };
   token = runToken;
-  activePairs = new Set();
+  // sprites already overlapping when Play is pressed didn't just collide, so don't swap them
+  activePairs = detectCollisionStarts(getState().sprites, new Set()).active;
   frameTime = scheduler.now();
   setState((st) => ({ ...st, running: true, activeBlocks: {}, bubbles: {}, errors: {} }));
 
